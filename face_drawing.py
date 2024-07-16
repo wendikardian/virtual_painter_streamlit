@@ -3,6 +3,7 @@ import numpy as np
 import mediapipe as mp
 import streamlit as st
 from PIL import Image
+import os
 
 # Define the hand detector class
 class handDetector():
@@ -52,14 +53,22 @@ class handDetector():
         return fingers
 
 # Load the header images
-myListDirectory = os.listdir("header")
 overlayList = []
-for imPath in myListDirectory:
-    image = cv2.imread(f'header/{imPath}')
-    overlayList.append(image)
+header_path = "header"
+if os.path.exists(header_path):
+    myListDirectory = os.listdir(header_path)
+    for imPath in myListDirectory:
+        image = cv2.imread(f'{header_path}/{imPath}')
+        overlayList.append(image)
+else:
+    st.error(f"The directory '{header_path}' does not exist. Please ensure it is present.")
 
 # Initialize variables
-header = overlayList[0]
+if overlayList:
+    header = overlayList[0]
+else:
+    header = np.zeros((125, 1280, 3), np.uint8)  # Create a black header if no images are found
+
 drawColor = (0, 0, 255)
 brushThickness = 7
 eraserThickness = 40
