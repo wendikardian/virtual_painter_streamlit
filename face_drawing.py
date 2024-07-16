@@ -2,8 +2,6 @@ import cv2
 import numpy as np
 import mediapipe as mp
 import streamlit as st
-from streamlit_webrtc import VideoTransformerBase, webrtc_streamer, WebRtcMode
-import av
 import os
 
 # Define the hand detector class
@@ -87,77 +85,59 @@ imgCanvas = np.zeros((720, 1280, 3), np.uint8)
 st.title("Virtual Painter")
 st.subheader("Draw with your fingers using a webcam")
 
-class VideoTransformer(VideoTransformerBase):
-    def __init__(self):
-        self.detector = handDetector(detectionConfidence=0.5)
-        self.drawColor = drawColor
-        self.xp, self.yp = 0, 0
-        self.imgCanvas = imgCanvas.copy()
-        self.header = header
+run = st.checkbox('Run')
+FRAME_WINDOW = st.image([])
 
-    def transform(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        img = cv2.flip(img, 1)
-        img = self.detector.findHands(img)
-        lmList = self.detector.findPosition(img, draw=False)
+if run:
+    st.info("Please ensure your webcam is enabled and accessible by the browser.")
+    camera_input = st.camera_input("Webcam Input")
+
+    if camera_input:
+        frame = cv2.imdecode(np.frombuffer(camera_input.getvalue(), np.uint8), cv2.IMREAD_COLOR)
+        frame = cv2.flip(frame, 1)
+        detector = handDetector(detectionConfidence=0.5)
+        frame = detector.findHands(frame)
+        lmList = detector.findPosition(frame, draw=False)
 
         if len(lmList) != 0:
             x1, y1 = lmList[8][1:]
             x2, y2 = lmList[12][1:]
-            fingers = self.detector.fingersUp()
+            fingers = detector.fingersUp()
 
             if fingers[1] and fingers[2]:
-                self.xp, self.yp = 0, 0
+                xp, yp = 0, 0
                 if y1 < 125:
                     if 320 < x1 < 480:
-                        self.header = overlayList[0]
-                        self.drawColor = (0, 0, 255)
+                        header = overlayList[0]
+                        drawColor = (0, 0, 255)
                     elif 480 < x1 < 630:
-                        self.header = overlayList[1]
-                        self.drawColor = (0, 255, 0)
+                        header = overlayList[1]
+                        drawColor = (0, 255, 0)
                     elif 650 < x1 < 840:
-                        self.header = overlayList[2]
-                        self.drawColor = (255, 0, 0)
+                        header = overlayList[2]
+                        drawColor = (255, 0, 0)
                     elif x1 > 1000:
-                        self.header = overlayList[3]
-                        self.drawColor = (0, 0, 0)
+                        header = overlayList[3]
+                        drawColor = (0, 0, 0)
 
             if fingers[1] and not fingers[2]:
-                if self.xp == 0 and self.yp == 0:
-                    self.xp, self.yp = x1, y1
-                if self.drawColor == (0, 0, 0):
-                    cv2.line(img, (self.xp, self.yp), (x1, y1), self.drawColor, eraserThickness)
-                    cv2.line(self.imgCanvas, (self.xp, self.yp), (x1, y1), self.drawColor, eraserThickness)
+                if xp == 0 and yp == 0:
+                    xp, yp = x1, y1
+                if drawColor == (0, 0, 0):
+                    cv2.line(frame, (xp, yp), (x1, y1), drawColor, eraserThickness)
+                    cv2.line(imgCanvas, (xp, yp), (x1, y1), drawColor, eraserThickness)
                 else:
-                    cv2.line(img, (self.xp, self.yp), (x1, y1), self.drawColor, brushThickness)
-                    cv2.line(self.imgCanvas, (self.xp, self.yp), (x1, y1), self.drawColor, brushThickness)
-                self.xp, self.yp = x1, y1
+                    cv2.line(frame, (xp, yp), (x1, y1), drawColor, brushThickness)
+                    cv2.line(imgCanvas, (xp, yp), (x1, y1), drawColor, brushThickness)
+                xp, yp = x1, y1
 
-        imgGray = cv2.cvtColor(self.imgCanvas, cv2.COLOR_BGR2GRAY)
-        _, imgInvers = cv2.threshold(imgGray, 50, 255, cv2.THRESH_BINARY_INV)
-        imgInvers = cv2.cvtColor(imgInvers, cv2.COLOR_GRAY2BGR)
-        img = cv2.bitwise_and(img, imgInvers)
-        img = cv2.bitwise_or(img, self.imgCanvas)
-        img[0:125, 0:1280] = self.header
+        frameGray = cv2.cvtColor(imgCanvas, cv2.COLOR_BGR2GRAY)
+        _, frameInvers = cv2.threshold(frameGray, 50, 255, cv2.THRESH_BINARY_INV)
+        frameInvers = cv2.cvtColor(frameInvers, cv2.COLOR_GRAY2BGR)
+        frame = cv2.bitwise_and(frame, frameInvers)
+        frame = cv2.bitwise_or(frame, imgCanvas)
+        frame[0:125, 0:1280] = header
 
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-# Debugging streamlit webrtc
-def video_frame_callback(frame):
-    img = frame.to_ndarray(format="bgr24")
-    img = cv2.flip(img, 1)
-    return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-webrtc_ctx = webrtc_streamer(
-    key="example",
-    mode=WebRtcMode.SENDRECV,
-    video_transformer_factory=VideoTransformer,
-    media_stream_constraints={"video": True, "audio": False},
-    async_processing=True,
-    video_frame_callback=video_frame_callback,
-)
-
-if not webrtc_ctx.state.playing:
-    st.write("Click 'Start' to begin the video stream.")
+        FRAME_WINDOW.image(frame)
 else:
-    st.write("Video stream started. Make sure your webcam is enabled.")
+    st.write("Please enable 'Run' checkbox to start the webcam feed.")

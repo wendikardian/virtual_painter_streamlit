@@ -3,6 +3,7 @@ import numpy as np
 import mediapipe as mp
 import streamlit as st
 from PIL import Image
+import os
 
 # Define a class for hand detection
 class handDetector():
@@ -17,8 +18,8 @@ class handDetector():
         self.mpDraw = mp.solutions.drawing_utils
 
     def findHands(self, frame, draw=True):
-        # frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        self.results = self.hands.process(frame)
+        frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        self.results = self.hands.process(frameRGB)
         if self.results.multi_hand_landmarks:
             for handLms in self.results.multi_hand_landmarks:
                 if draw:
@@ -83,8 +84,13 @@ xp, yp = 0, 0
 imgCanvas = np.zeros((720, 1280, 3), np.uint8)
 drawColor = (0, 0, 255)
 
-while True:
+# Create a placeholder for the image
+img_placeholder = st.empty()
+
+while cap.isOpened():
     res, frame = cap.read()
+    if not res:
+        break
     frame = cv2.flip(frame, 1)
     frame = detector.findHands(frame)
     lmList = detector.findPosition(frame, draw=False)
@@ -136,9 +142,8 @@ while True:
     # Convert to Image for Streamlit
     imgRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     imgPIL = Image.fromarray(imgRGB)
-    st.image(imgPIL)
+    img_placeholder.image(imgPIL)
 
-    # Stop condition
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break
 
