@@ -142,4 +142,22 @@ class VideoTransformer(VideoTransformerBase):
 
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-webrtc_streamer(key="example", mode=WebRtcMode.SENDRECV, video_transformer_factory=VideoTransformer, media_stream_constraints={"video": True, "audio": False})
+# Debugging streamlit webrtc
+def video_frame_callback(frame):
+    img = frame.to_ndarray(format="bgr24")
+    img = cv2.flip(img, 1)
+    return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+webrtc_ctx = webrtc_streamer(
+    key="example",
+    mode=WebRtcMode.SENDRECV,
+    video_transformer_factory=VideoTransformer,
+    media_stream_constraints={"video": True, "audio": False},
+    async_processing=True,
+    video_frame_callback=video_frame_callback,
+)
+
+if not webrtc_ctx.state.playing:
+    st.write("Click 'Start' to begin the video stream.")
+else:
+    st.write("Video stream started. Make sure your webcam is enabled.")
