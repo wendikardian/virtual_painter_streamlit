@@ -4,6 +4,7 @@ import mediapipe as mp
 import streamlit as st
 from streamlit_webrtc import VideoTransformerBase, webrtc_streamer, WebRtcMode
 import av
+import os
 
 # Define the hand detector class
 class handDetector():
@@ -65,8 +66,10 @@ if os.path.exists(header_path):
     for imPath in myListDirectory:
         image = cv2.imread(f'{header_path}/{imPath}')
         overlayList.append(image)
+    if not overlayList:
+        st.error("No images found in the 'header' directory.")
 else:
-    st.error(f"The directory '{header_path}' does not exist. Please ensure it is present.")
+    st.error(f"The directory '{header_path}' does not exist. Please ensure it is present and contains images.")
 
 # Initialize variables
 if overlayList:
