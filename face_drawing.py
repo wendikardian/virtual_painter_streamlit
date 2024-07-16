@@ -2,9 +2,8 @@ import cv2
 import numpy as np
 import mediapipe as mp
 import streamlit as st
-from PIL import Image
-import os
-from streamlit_webrtc import VideoTransformerBase, webrtc_streamer
+from streamlit_webrtc import VideoTransformerBase, webrtc_streamer, WebRtcMode
+import av
 
 # Define the hand detector class
 class handDetector():
@@ -94,9 +93,10 @@ class VideoTransformer(VideoTransformerBase):
         self.header = header
 
     def transform(self, frame):
-        frame = cv2.flip(frame, 1)
-        frame = self.detector.findHands(frame)
-        lmList = self.detector.findPosition(frame, draw=False)
+        img = frame.to_ndarray(format="bgr24")
+        img = cv2.flip(img, 1)
+        img = self.detector.findHands(img)
+        lmList = self.detector.findPosition(img, draw=False)
 
         if len(lmList) != 0:
             x1, y1 = lmList[8][1:]
@@ -123,20 +123,20 @@ class VideoTransformer(VideoTransformerBase):
                 if self.xp == 0 and self.yp == 0:
                     self.xp, self.yp = x1, y1
                 if self.drawColor == (0, 0, 0):
-                    cv2.line(frame, (self.xp, self.yp), (x1, y1), self.drawColor, eraserThickness)
+                    cv2.line(img, (self.xp, self.yp), (x1, y1), self.drawColor, eraserThickness)
                     cv2.line(self.imgCanvas, (self.xp, self.yp), (x1, y1), self.drawColor, eraserThickness)
                 else:
-                    cv2.line(frame, (self.xp, self.yp), (x1, y1), self.drawColor, brushThickness)
+                    cv2.line(img, (self.xp, self.yp), (x1, y1), self.drawColor, brushThickness)
                     cv2.line(self.imgCanvas, (self.xp, self.yp), (x1, y1), self.drawColor, brushThickness)
                 self.xp, self.yp = x1, y1
 
-        frameGray = cv2.cvtColor(self.imgCanvas, cv2.COLOR_BGR2GRAY)
-        _, frameInvers = cv2.threshold(frameGray, 50, 255, cv2.THRESH_BINARY_INV)
-        frameInvers = cv2.cvtColor(frameInvers, cv2.COLOR_GRAY2BGR)
-        frame = cv2.bitwise_and(frame, frameInvers)
-        frame = cv2.bitwise_or(frame, self.imgCanvas)
-        frame[0:125, 0:1280] = self.header
+        imgGray = cv2.cvtColor(self.imgCanvas, cv2.COLOR_BGR2GRAY)
+        _, imgInvers = cv2.threshold(imgGray, 50, 255, cv2.THRESH_BINARY_INV)
+        imgInvers = cv2.cvtColor(imgInvers, cv2.COLOR_GRAY2BGR)
+        img = cv2.bitwise_and(img, imgInvers)
+        img = cv2.bitwise_or(img, self.imgCanvas)
+        img[0:125, 0:1280] = self.header
 
-        return frame
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
+webrtc_streamer(key="example", mode=WebRtcMode.SENDRECV, video_transformer_factory=VideoTransformer, media_stream_constraints={"video": True, "audio": False})
